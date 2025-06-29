@@ -2,6 +2,26 @@
 
 This repository is a Pulumi template for creating a containerized service on AWS Fargate. The infrastructure is defined in `index.ts` using TypeScript.
 
+## Architecture Diagram
+
+```mermaid
+graph TD
+    subgraph " "
+        User[("Internet User")] -->|"your-domain.com"| Route53["Route 53"];
+    end
+
+    subgraph "AWS Cloud"
+        Route53 -->|"A Record"| ALB["Application Load Balancer"];
+        ALB -->|"Forwards Traffic"| FargateService["ECS Fargate Service"];
+        FargateService -- "Pulls Image" --> ECR["ECR Repository"];
+        ALB -- "Uses" --> ACM["ACM Certificate"];
+    end
+
+    subgraph "Local Machine"
+        AppCode["App Code + Dockerfile"] -->|"pulumi up builds and pushes"| ECR;
+    end
+```
+
 ## Architecture
 
 This template provisions the following AWS resources:
@@ -35,6 +55,28 @@ The `index.ts` file defines the cloud infrastructure. Here's a breakdown of its 
 -   Docker installed and running.
 -   A registered domain name with a hosted zone in Route 53.
 -   An ACM certificate for your domain validated in the same region.
+
+## Initial AWS Setup
+
+Before using this template, you need to configure a few resources in your AWS account.
+
+### 1. Route 53 Hosted Zone
+
+You need a public hosted zone in Amazon Route 53 for the domain you intend to use.
+
+-   If you already have a domain registered with Route 53, a hosted zone is configured for you automatically.
+-   If your domain is registered with another provider, you can create a hosted zone and then update the name server (NS) records at your domain registrar to point to the AWS name servers.
+-   You can find the ID for your hosted zone in the Route 53 console. It will look something like `Z0123456789ABCDEFGHIJ`.
+
+### 2. ACM Certificate
+
+You need an SSL/TLS certificate from AWS Certificate Manager (ACM) to enable HTTPS on the Application Load Balancer.
+
+-   Navigate to the **AWS Certificate Manager** console. **Make sure you are in the same AWS region where you plan to deploy your infrastructure.**
+-   Request a new **public certificate**.
+-   Enter your domain name (e.g., `your-domain.com`) and a wildcard for subdomains (e.g., `*.your-domain.com`).
+-   Choose **DNS validation**. AWS will provide you with CNAME records that you must add to your Route 53 hosted zone to prove you own the domain.
+-   Once the certificate's status is **Issued**, copy its ARN. It will look like `arn:aws:acm:us-east-1:123456789012:certificate/your-cert-id`.
 
 ## How to Use This Template
 
