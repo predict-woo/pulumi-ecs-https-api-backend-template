@@ -1,101 +1,93 @@
-# ReadX AWS Infrastructure
+# Pulumi AWS Fargate Template (TypeScript)
 
-This directory contains the Pulumi program for deploying the ReadX backend infrastructure on AWS. The infrastructure is defined in `index.ts` using TypeScript.
+This repository is a Pulumi template for creating a containerized service on AWS Fargate. The infrastructure is defined in `index.ts` using TypeScript.
 
-## Architecture Overview
+## Architecture
 
-The Pulumi program in `index.ts` provisions the following AWS resources to run the ReadX NestJS backend application:
+This template provisions the following AWS resources:
 
--   **AWS Fargate Service on an ECS Cluster**: The backend application runs as a containerized service using AWS Fargate, which removes the need to manage servers.
--   **Application Load Balancer (ALB)**: An ALB is set up to distribute incoming HTTP traffic to the Fargate service.
--   **ECR (Elastic Container Registry)**: A private ECR repository stores the Docker image for the NestJS application.
+-   **AWS Fargate Service on an ECS Cluster**: The application runs as a containerized service using AWS Fargate, which removes the need to manage servers.
+-   **Application Load Balancer (ALB)**: An ALB is set up to distribute incoming traffic to the Fargate service. It handles HTTP to HTTPS redirection.
+-   **ECR (Elastic Container Registry)**: A private ECR repository stores the Docker image for the application.
+-   **Route 53**: A Route 53 A record is created to point your custom domain to the ALB.
 
 ## `index.ts` Structure
 
-The `infra/index.ts` file defines the cloud infrastructure. Here's a breakdown of its components:
+The `index.ts` file defines the cloud infrastructure. Here's a breakdown of its components:
 
-1.  **Configuration**: It uses `pulumi.Config` to load necessary environment variables and secrets for the application. These include database connection strings, API keys, and other sensitive data.
-
+1.  **Configuration**: It uses `pulumi.Config` to load required configuration values for your environment, such as your domain name and AWS resource ARNs.
 2.  **ECS Cluster**: A new ECS cluster (`aws.ecs.Cluster`) is created to host the containerized services.
-
-3.  **Networking**: An Application Load Balancer (`awsx.lb.ApplicationLoadBalancer`) is provisioned to route external traffic to the service. It listens on port 80.
-
-4.  **Container Registry**: An ECR repository (`awsx.ecr.Repository`) is created to store the application's Docker image. It is configured to be forcefully deleted on stack destruction to simplify cleanup.
-
-5.  **Image Build & Push**: The script defines an `awsx.ecr.Image` resource. This tells Pulumi to:
-    -   Build a Docker image from the source code located in the `../nest` directory.
+3.  **Networking**: An Application Load Balancer (`awsx.lb.ApplicationLoadBalancer`) is provisioned to route external traffic to the service. It listens on port 80 (for HTTP to HTTPS redirection) and 443.
+4.  **Route 53 Record**: A Route 53 'A' record is set up to associate your custom domain with the ALB.
+5.  **Container Registry**: An ECR repository (`awsx.ecr.Repository`) is created to store the application's Docker image.
+6.  **Image Build & Push**: The script defines an `awsx.ecr.Image` resource which tells Pulumi to:
+    -   Build a Docker image from a local source directory (you must specify the path).
     -   Target the `linux/arm64` architecture, suitable for AWS Graviton processors.
     -   Push the built image to the ECR repository.
-
-6.  **Fargate Service**: The core `awsx.ecs.FargateService` resource ties everything together:
-    -   It launches a task on the ECS cluster using the Fargate launch type.
-    -   It uses the Docker image built in the previous step.
-    -   It configures CPU (1 vCPU) and memory (2GB) for the container.
-    -   It connects the service to the ALB's target group, allowing it to receive traffic.
-    -   All the secrets and configurations are securely passed to the container as environment variables.
-
-7.  **Outputs**: Finally, the program exports the DNS name of the ALB, which serves as the public endpoint for the backend service.
+7.  **Fargate Service**: The core `awsx.ecs.FargateService` resource ties everything together.
+8.  **Outputs**: The program exports the final URL of the service.
 
 ## Prerequisites
 
 -   Pulumi CLI (>= v3): https://www.pulumi.com/docs/get-started/install/
--   Node.js (>= 14) and pnpm: https://nodejs.org/ & https://pnpm.io/
+-   Node.js (>= 18) and pnpm: https://nodejs.org/ & https://pnpm.io/
 -   AWS credentials configured (e.g., via `aws configure` or environment variables).
 -   Docker installed and running.
+-   A registered domain name with a hosted zone in Route 53.
+-   An ACM certificate for your domain validated in the same region.
 
-## Deployment
+## How to Use This Template
 
-1.  **Install dependencies**:
+1.  **Create a new repository from this template.**
+    Click the "Use this template" button on GitHub.
+
+2.  **Update the container source path.**
+    In `index.ts`, change the `context` property of the `awsx.ecr.Image` resource from `"./path/to/your/app"` to the actual path of your application's source code, where your `Dockerfile` is located.
+
+3.  **Install dependencies.**
     ```bash
-    cd infra
     pnpm install
     ```
 
-2.  **Configure Pulumi Stack**:
-    If you haven't already, create a new stack (e.g., `dev`):
+4.  **Configure Pulumi Stack.**
+    Create a new stack (e.g., `dev`):
     ```bash
     pulumi stack init dev
     ```
-    Set the required configuration secrets. Use `pulumi config set --secret <key> <value>`. The required keys are listed in `index.ts`, for example:
-    -   `DATABASE_URL`
-    -   `DIRECT_URL`
-    -   `BIZM_USERID`
-    -   ...and others.
+    Set the required configuration values. Pulumi will prompt you for any required values that you don't set.
+    ```bash
+    pulumi config set domainName your-domain.com
+    pulumi config set acmCertificateArn arn:aws:acm:us-east-1:123456789012:certificate/your-cert-id
+    pulumi config set route53ZoneId YOUR_HOSTED_ZONE_ID
+    ```
+    Set any required secrets for your application's environment.
+    ```bash
+    pulumi config set --secret DATABASE_URL "your-database-connection-string"
+    ```
 
-3.  **Deploy**:
+5.  **Deploy.**
     Preview and deploy the infrastructure:
     ```bash
     pulumi up
     ```
 
-4.  **Cleanup**:
+6.  **Cleanup.**
     When you're finished, tear down your stack's resources:
     ```bash
     pulumi destroy
-    ```
-    And remove the stack:
-    ```bash
-    pulumi stack rm
     ```
 
 ## Project Layout
 
 - `Pulumi.yaml` — Pulumi project and template metadata
-- `index.ts` — Main Pulumi program (creates an S3 bucket)
-- `package.json` — Node.js dependencies
+- `index.ts` — Main Pulumi program
+- `package.json` — Node.js dependencies for the infrastructure
 - `tsconfig.json` — TypeScript compiler options
 
-## Configuration
+## Customization
 
-| Key           | Description                             | Default     |
-| ------------- | --------------------------------------- | ----------- |
-| `aws:region`  | The AWS region to deploy resources into | `us-east-1` |
+You can extend `index.ts` to provision additional resources (e.g., databases, VPCs, Lambda functions).
 
-Use `pulumi config set <key> <value>` to customize configuration.
-
-## Next Steps
-
-- Extend `index.ts` to provision additional resources (e.g., VPCs, Lambda functions, DynamoDB tables).
 - Explore [Pulumi AWSX](https://www.pulumi.com/docs/reference/pkg/awsx/) for higher-level AWS components.
 - Consult the [Pulumi documentation](https://www.pulumi.com/docs/) for more examples and best practices.
 

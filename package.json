@@ -1,0 +1,15 @@
+{
+    "name": "pulumi-aws-fargate-template",
+    "description": "A Pulumi project to deploy a containerized application to AWS Fargate.",
+    "main": "index.ts",
+    "devDependencies": {
+        "@types/node": "^18",
+        "typescript": "^5.0.0"
+    },
+    "dependencies": {
+        "@pulumi/aws": "^6.0.0",
+        "@pulumi/awsx": "^2.22.0",
+        "@pulumi/docker": "^4.8.0",
+        "@pulumi/pulumi": "^3.113.0"
+    }
+}
