@@ -2,6 +2,8 @@
 
 This repository is a Pulumi template for creating a containerized service on AWS Fargate. The infrastructure is defined in `index.ts` using TypeScript.
 
+Why doesn't the pulumi docs have this example? It took me like 4 hours to set this simple service up 😓
+
 ## Architecture Diagram
 
 ```mermaid
